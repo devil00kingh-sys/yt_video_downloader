@@ -3,7 +3,7 @@
 Flask + yt-dlp. Paste a public video or audio link, choose a quality, and download it. yt-dlp supports many sites, including Instagram and Facebook, but site support can change and some links require login/cookies.
 
 ## Setup
-1. Python 3.9+ aur **ffmpeg** install karein (video+audio merge aur MP3 ke liye zaroori).
+1. Python 3.9+, **ffmpeg**, and a JavaScript runtime (Deno recommended for YouTube extraction) install karein.
    - Windows: `winget install ffmpeg`
    - Mac: `brew install ffmpeg`
    - Linux: `sudo apt install ffmpeg`

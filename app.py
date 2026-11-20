@@ -16,19 +16,11 @@ from flask import Flask, jsonify, request, send_file, send_from_directory
 app = Flask(__name__, static_folder="static")
 
 AUDIO_BITRATES = ["128", "192", "320"]
-DEFAULT_COOKIES_FILE = "/etc/secrets/youtube-cookies.txt"
-
-
-def cookie_file_path():
-    return os.environ.get("YOUTUBE_COOKIES_FILE", DEFAULT_COOKIES_FILE)
 
 
 def ytdlp_options(extra=None):
-    """Build yt-dlp options and optionally load a private Netscape cookie file."""
+    """Build yt-dlp options for public, unauthenticated downloads."""
     opts = {"quiet": True, "noplaylist": True}
-    cookie_file = cookie_file_path()
-    if os.path.isfile(cookie_file):
-        opts["cookiefile"] = cookie_file
     if extra:
         opts.update(extra)
     return opts
@@ -37,14 +29,10 @@ def ytdlp_options(extra=None):
 def describe_ytdlp_error(error):
     message = str(error)
     if "Sign in to confirm" in message or "confirm you’re not a bot" in message.lower():
-        if not os.path.isfile(cookie_file_path()):
-            return (
-                "YouTube blocked this request, and no cookies file is loaded. On Render, add a Secret File "
-                "named youtube-cookies.txt, then redeploy."
-            )
         return (
-            "YouTube rejected the loaded cookies. Export a fresh Netscape-format cookie file while signed in; "
-            "YouTube may also be blocking Render's server IP."
+            "YouTube is blocking requests from this public hosting server (bot check or rate limit). "
+            "This link may work when you run the downloader on your own computer. "
+            "Do not add Google cookies to this public website."
         )
     return message[:300]
 

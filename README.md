@@ -28,7 +28,7 @@ Flask + yt-dlp. Paste a public video or audio link, choose a quality, and downlo
 - Agar download fail ho to yt-dlp update karein: `pip install -U yt-dlp` (YouTube baar baar change hota hai).
 - Playlist support nahi hai, sirf single video.
 - Supported sites list: https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
-- YouTube may require sign-in cookies on cloud hosts. For Render, add a private secret file named `youtube-cookies.txt`; the app reads it from `/etc/secrets/youtube-cookies.txt`. Never commit or share this file. A public service using your cookies lets its visitors make requests with your signed-in session.
+- Public cloud hosts may be blocked or rate-limited by YouTube. This public app intentionally does not use account cookies; run it locally for YouTube links when cloud hosting is blocked.
 
 ## Note
 YouTube ke Terms of Service aur copyright ka dhyan rakhein. Sirf apna content ya jisme permission ho, wahi download karein.

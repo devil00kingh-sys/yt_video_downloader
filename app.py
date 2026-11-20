@@ -16,6 +16,18 @@ from flask import Flask, jsonify, request, send_file, send_from_directory
 app = Flask(__name__, static_folder="static")
 
 AUDIO_BITRATES = ["128", "192", "320"]
+DEFAULT_COOKIES_FILE = "/etc/secrets/youtube-cookies.txt"
+
+
+def ytdlp_options(extra=None):
+    """Build yt-dlp options and optionally load a private Netscape cookie file."""
+    opts = {"quiet": True, "noplaylist": True}
+    cookie_file = os.environ.get("YOUTUBE_COOKIES_FILE", DEFAULT_COOKIES_FILE)
+    if os.path.isfile(cookie_file):
+        opts["cookiefile"] = cookie_file
+    if extra:
+        opts.update(extra)
+    return opts
 
 
 def valid_url(url: str) -> bool:
@@ -65,7 +77,7 @@ def info():
     if not valid_url(url):
         return jsonify(error="Please paste a valid public video or audio link (HTTP or HTTPS)."), 400
 
-    opts = {"quiet": True, "noplaylist": True, "skip_download": True}
+    opts = ytdlp_options({"skip_download": True})
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             data = ydl.extract_info(url, download=False)
@@ -114,11 +126,9 @@ def download():
         return jsonify(error="Invalid link. Use a public HTTP or HTTPS video/audio URL."), 400
 
     tmp = tempfile.mkdtemp(prefix="ytdl_")
-    opts = {
-        "quiet": True,
-        "noplaylist": True,
+    opts = ytdlp_options({
         "outtmpl": os.path.join(tmp, "%(id)s.%(ext)s"),
-    }
+    })
 
     if kind == "audio":
         fmt = request.args.get("fmt", "mp3")

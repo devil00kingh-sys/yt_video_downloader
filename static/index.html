@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Link to File</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Figtree:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #e9efee; --panel: #ffffff; --text: #14201e; --muted: #5b6b68;
+    --line: #cdd9d6; --accent: #0f766e; --accent-ink: #ffffff; --err: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1716; --panel: #172322; --text: #e4efed; --muted: #8fa3a0;
+            --line: #2a3b39; --accent: #2dd4bf; --accent-ink: #062623; --err: #ff8a80; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font-family: "Figtree", system-ui, sans-serif; line-height: 1.5; }
+  main { max-width: 640px; margin: 0 auto; padding: 48px 20px 80px; }
+  h1 { font-family: "Bricolage Grotesque", system-ui, sans-serif; font-weight: 800;
+       font-size: clamp(2rem, 7vw, 3.2rem); letter-spacing: -0.03em; margin: 0 0 8px; }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  .row { display: flex; gap: 8px; }
+  input[type=url] { flex: 1; min-width: 0; padding: 14px 16px; font: inherit; color: var(--text);
+        background: var(--panel); border: 2px solid var(--line); border-radius: 10px; }
+  input:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .go { padding: 0 22px; font: 700 1rem "Bricolage Grotesque", sans-serif; cursor: pointer;
+        background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px; }
+  .go:disabled { opacity: .55; cursor: wait; }
+  #msg { min-height: 1.5em; margin: 12px 2px; color: var(--muted); }
+  #msg.err { color: var(--err); }
+  .card { display: none; background: var(--panel); border: 2px solid var(--line);
+          border-radius: 14px; overflow: hidden; }
+  .card.show { display: block; }
+  .meta { display: flex; gap: 14px; padding: 14px; align-items: center; border-bottom: 2px solid var(--line); }
+  .meta img { width: 128px; aspect-ratio: 16/9; object-fit: cover; border-radius: 8px; background: var(--line); }
+  .meta h2 { font-size: 1rem; margin: 0 0 4px; line-height: 1.3; }
+  .meta p { margin: 0; color: var(--muted); font-size: .9rem; }
+  .tabs { display: flex; border-bottom: 2px solid var(--line); }
+  .tabs button { flex: 1; padding: 12px; font: 700 .95rem "Bricolage Grotesque", sans-serif;
+        background: none; color: var(--muted); border: 0; cursor: pointer; border-bottom: 4px solid transparent; }
+  .tabs button[aria-selected=true] { color: var(--text); border-bottom-color: var(--accent); }
+  .opts { list-style: none; margin: 0; padding: 6px; }
+  .opts li button { width: 100%; display: flex; justify-content: space-between; align-items: center;
+        padding: 12px 14px; font: inherit; color: var(--text); background: none; border: 0;
+        border-radius: 8px; cursor: pointer; text-align: left; }
+  .opts li button:hover { background: var(--bg); }
+  .opts small { color: var(--muted); }
+  @media (max-width: 480px) { .meta img { width: 96px; } .row { flex-direction: column; } .go { padding: 14px; } }
+  @media (prefers-reduced-motion: no-preference) { .go { transition: transform .1s; } .go:active { transform: scale(.97); } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Paste a link, pick a quality</h1>
+  <p class="sub">Download videos or audio from sites supported by yt-dlp. Use links to content you own or have permission to save.</p>
+
+  <div class="row">
+    <input id="url" type="url" placeholder="Paste a public video link (Instagram, Facebook, YouTube, etc.)" aria-label="Video or audio link">
+    <button class="go" id="fetch">Get options</button>
+  </div>
+  <div id="msg" role="status"></div>
+
+  <section class="card" id="card">
+    <div class="meta">
+      <img id="thumb" alt="">
+      <div><h2 id="title"></h2><p id="info"></p></div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-video" aria-selected="true">Video</button>
+      <button role="tab" id="tab-audio" aria-selected="false">Audio</button>
+    </div>
+    <ul class="opts" id="opts"></ul>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let data = null, tab = "video";
+
+function setMsg(text, err = false) { $("msg").textContent = text; $("msg").className = err ? "err" : ""; }
+function mmss(s) { if (!s) return ""; const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
+  return (h ? h + ":" + String(m).padStart(2,"0") : m) + ":" + String(x).padStart(2,"0"); }
+
+async function getInfo() {
+  const url = $("url").value.trim();
+  if (!url) return setMsg("Paste a video or audio link first.", true);
+  $("fetch").disabled = true; $("card").classList.remove("show"); setMsg("Reading the video…");
+  try {
+    const r = await fetch("/api/info", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({url}) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "Something went wrong.");
+    data = j; data.url = url; render(); setMsg("");
+  } catch (e) { setMsg(e.message, true); }
+  $("fetch").disabled = false;
+}
+
+function render() {
+  $("thumb").src = data.thumbnail || ""; $("title").textContent = data.title;
+  $("info").textContent = [data.channel, mmss(data.duration)].filter(Boolean).join(" • ");
+  $("card").classList.add("show"); renderOpts();
+}
+
+function renderOpts() {
+  $("tab-video").setAttribute("aria-selected", tab === "video");
+  $("tab-audio").setAttribute("aria-selected", tab === "audio");
+  const list = $("opts"); list.innerHTML = "";
+  (tab === "video" ? data.video : data.audio).forEach(o => {
+    const li = document.createElement("li"), b = document.createElement("button");
+    b.innerHTML = `<span>${o.label}</span><small>${o.size_mb ? "~" + o.size_mb + " MB" : "Download"}</small>`;
+    b.onclick = () => download(o);
+    li.appendChild(b); list.appendChild(li);
+  });
+}
+
+async function download(o) {
+  const q = new URLSearchParams({ url: data.url, type: tab });
+  if (tab === "video") q.set("height", o.height); else { q.set("fmt", o.fmt); q.set("abr", o.abr); }
+  setMsg(`Preparing ${o.label}… this can take a minute.`);
+  try {
+    const r = await fetch("/api/download?" + q);
+    if (!r.ok) throw new Error((await r.json()).error || "Download failed.");
+    const blob = await r.blob();
+    const name = (r.headers.get("Content-Disposition") || "").match(/filename\*?=(?:UTF-8'')?"?([^";]+)/i);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name ? decodeURIComponent(name[1]) : "download";
+    a.click(); URL.revokeObjectURL(a.href);
+    setMsg("Done. Check your Downloads folder.");
+  } catch (e) { setMsg(e.message, true); }
+}
+
+$("fetch").onclick = getInfo;
+$("url").addEventListener("keydown", e => { if (e.key === "Enter") getInfo(); });
+$("tab-video").onclick = () => { tab = "video"; renderOpts(); };
+$("tab-audio").onclick = () => { tab = "audio"; renderOpts(); };
+</script>
+</body>
+</html>

@@ -19,15 +19,34 @@ AUDIO_BITRATES = ["128", "192", "320"]
 DEFAULT_COOKIES_FILE = "/etc/secrets/youtube-cookies.txt"
 
 
+def cookie_file_path():
+    return os.environ.get("YOUTUBE_COOKIES_FILE", DEFAULT_COOKIES_FILE)
+
+
 def ytdlp_options(extra=None):
     """Build yt-dlp options and optionally load a private Netscape cookie file."""
     opts = {"quiet": True, "noplaylist": True}
-    cookie_file = os.environ.get("YOUTUBE_COOKIES_FILE", DEFAULT_COOKIES_FILE)
+    cookie_file = cookie_file_path()
     if os.path.isfile(cookie_file):
         opts["cookiefile"] = cookie_file
     if extra:
         opts.update(extra)
     return opts
+
+
+def describe_ytdlp_error(error):
+    message = str(error)
+    if "Sign in to confirm" in message or "confirm you’re not a bot" in message.lower():
+        if not os.path.isfile(cookie_file_path()):
+            return (
+                "YouTube blocked this request, and no cookies file is loaded. On Render, add a Secret File "
+                "named youtube-cookies.txt, then redeploy."
+            )
+        return (
+            "YouTube rejected the loaded cookies. Export a fresh Netscape-format cookie file while signed in; "
+            "YouTube may also be blocking Render's server IP."
+        )
+    return message[:300]
 
 
 def valid_url(url: str) -> bool:
@@ -82,7 +101,7 @@ def info():
         with yt_dlp.YoutubeDL(opts) as ydl:
             data = ydl.extract_info(url, download=False)
     except Exception as e:
-        return jsonify(error=f"Could not read this video: {str(e)[:200]}"), 400
+        return jsonify(error=f"Could not read this video: {describe_ytdlp_error(e)}"), 400
 
     formats = data.get("formats", [])
     audio_sizes = [
